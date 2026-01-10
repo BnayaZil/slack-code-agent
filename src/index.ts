@@ -59,30 +59,36 @@ async function handleDiffCommand(channelId: string, channelData: store.ChannelDa
   }
 
   try {
-    const diff = execSync("git diff", {
+    const execOptions = {
       cwd: channelData.projectPath,
-      encoding: "utf-8",
+      encoding: "utf-8" as const,
       maxBuffer: 1024 * 1024, // 1MB
-    });
+    };
 
-    if (!diff.trim()) {
+    const diffStat = execSync("git diff --stat", execOptions);
+    const fullDiff = execSync("git diff", execOptions);
+
+    if (!fullDiff.trim()) {
       await slack.postMessage(channelId, "✨ No uncommitted changes.");
       return;
     }
 
-    // Truncate if too long for Slack (max ~4000 chars in a code block)
-    const maxLength = 3500;
-    let output = diff;
-    let truncated = false;
-    if (diff.length > maxLength) {
-      output = diff.substring(0, maxLength);
-      truncated = true;
-    }
-
-    await slack.postMessage(
+    // Post summary with --stat
+    const summaryTs = await slack.postMessage(
       channelId,
-      `📝 *Git diff for* \`${channelData.projectPath}\`:\n\`\`\`diff\n${output}\`\`\`${truncated ? "\n_(truncated)_" : ""}`
+      `📝 *Git diff for* \`${channelData.projectPath}\`:\n\`\`\`\n${diffStat}\`\`\``
     );
+
+    // Upload full diff as snippet in thread
+    if (summaryTs) {
+      await slack.uploadSnippet(
+        channelId,
+        fullDiff,
+        "changes.diff",
+        "Full diff",
+        summaryTs
+      );
+    }
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     if (msg.includes("not a git repository")) {

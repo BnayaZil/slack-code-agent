@@ -151,3 +151,23 @@ export function mentionsBot(text: string | undefined): boolean {
 export function removeBotMention(text: string): string {
   return text.replace(new RegExp(`<@${config.slackBotUserId}>`, "g"), "").trim();
 }
+
+/**
+ * Upload a file snippet to a channel, optionally as a thread reply
+ */
+export async function uploadSnippet(
+  channelId: string,
+  content: string,
+  filename: string,
+  title: string,
+  threadTs?: string
+): Promise<void> {
+  await client.files.uploadV2({
+    channel_id: channelId,
+    content,
+    filename,
+    title,
+    filetype: "diff",
+    thread_ts: threadTs,
+  });
+}
