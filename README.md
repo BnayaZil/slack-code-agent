@@ -102,6 +102,24 @@ Use `/new` again to start a fresh conversation for a different project:
 
 This replaces the current conversation.
 
+### View Git Diff
+
+Use `/diff` to see uncommitted changes in the active project:
+```
+@cursor-bot /diff
+```
+
+Posts a summary with file stats and uploads the full diff as a snippet in a thread.
+
+### One-off Questions
+
+Use `/temp` to ask a question without affecting the main conversation history:
+```
+@cursor-bot /temp explain what this regex does
+```
+
+Creates a temporary chat, sends the prompt, and replies in a thread. Useful for quick questions that don't need context from the ongoing conversation.
+
 ## How It Works
 
 1. The bot polls Slack every 10 seconds (configurable)
