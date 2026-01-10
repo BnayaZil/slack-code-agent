@@ -14,6 +14,7 @@ function log(message: string): void {
 const NEW_COMMAND_REGEX = /^\/new\s+(.+)$/;
 const PROJECTS_COMMAND_REGEX = /^\/projects\s*$/;
 const DIFF_COMMAND_REGEX = /^\/diff\s*$/;
+const TEMP_COMMAND_REGEX = /^\/temp\s+(.+)$/s;
 
 function resolveProjectPath(inputPath: string): string {
   if (path.isAbsolute(inputPath)) {
@@ -96,6 +97,61 @@ async function handleDiffCommand(channelId: string, channelData: store.ChannelDa
     } else {
       await slack.postMessage(channelId, `❌ Failed to get diff: ${msg}`);
     }
+  }
+}
+
+async function handleTempCommand(
+  channelId: string,
+  messageTs: string,
+  prompt: string,
+  channelData: store.ChannelData | null
+): Promise<void> {
+  if (!channelData) {
+    await slack.postMessageInThread(
+      channelId,
+      messageTs,
+      "💡 No active conversation. Use `/new <project>` first."
+    );
+    return;
+  }
+
+  const projectPath = channelData.projectPath;
+
+  log(`/temp command in ${projectPath}: "${prompt.substring(0, 50)}..."`);
+
+  // Add thinking reaction
+  await slack.addReaction(channelId, messageTs, "hourglass_flowing_sand");
+
+  try {
+    // Create a temporary chat
+    const tempChatId = await cursor.createChat(projectPath);
+    log(`Temp chat created: ${tempChatId}`);
+
+    // Send the prompt
+    const response = await cursor.sendPrompt(tempChatId, projectPath, prompt);
+
+    // Remove thinking, add success
+    await slack.removeReaction(channelId, messageTs, "hourglass_flowing_sand");
+    await slack.addReaction(channelId, messageTs, "white_check_mark");
+
+    // Reply in thread
+    await slack.postMessageInThread(channelId, messageTs, response);
+  } catch (err) {
+    await slack.removeReaction(channelId, messageTs, "hourglass_flowing_sand");
+    await slack.addReaction(channelId, messageTs, "x");
+
+    const msg = err instanceof Error ? err.message : String(err);
+    log(`Temp command error: ${msg}`);
+
+    let userMessage = "❌ *Error processing temp request*\n";
+    if (msg.includes("resource_exhausted")) {
+      userMessage += "```Rate limit exceeded. Please wait a moment and try again.```";
+    } else if (msg.includes("timeout") || msg.includes("Timeout")) {
+      userMessage += "```Request timed out. The operation took too long.```";
+    } else {
+      userMessage += `\`\`\`${msg.substring(0, 500)}\`\`\``;
+    }
+    await slack.postMessageInThread(channelId, messageTs, userMessage);
   }
 }
 
@@ -198,6 +254,14 @@ async function processMessage(channelId: string, message: slack.SlackMessage): P
   if (DIFF_COMMAND_REGEX.test(cleanText)) {
     const channelData = store.loadChannelData(channelId);
     await handleDiffCommand(channelId, channelData);
+    return;
+  }
+
+  // /temp command
+  const tempMatch = cleanText.match(TEMP_COMMAND_REGEX);
+  if (tempMatch) {
+    const channelData = store.loadChannelData(channelId);
+    await handleTempCommand(channelId, message.ts, tempMatch[1].trim(), channelData);
     return;
   }
 

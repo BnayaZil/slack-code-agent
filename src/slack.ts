@@ -85,6 +85,22 @@ export async function postMessage(
 }
 
 /**
+ * Post a message as a thread reply
+ */
+export async function postMessageInThread(
+  channelId: string,
+  threadTs: string,
+  text: string
+): Promise<string | undefined> {
+  const result = await client.chat.postMessage({
+    channel: channelId,
+    text,
+    thread_ts: threadTs,
+  });
+  return result.ts;
+}
+
+/**
  * Update an existing message
  */
 export async function updateMessage(
