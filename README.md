@@ -109,7 +109,7 @@ Use `/diff` to see uncommitted changes in the active project:
 @cursor-bot /diff
 ```
 
-Posts a summary with file stats and uploads the full diff as a snippet in a thread.
+Posts a summary with file stats and uploads the full` diff as a snippet in a thread.
 
 ### One-off Questions
 
